@@ -32,7 +32,7 @@ import android.os.Bundle;
 public class MainActivity extends AppCompatActivity {
 
     private static String MODEL_NAME;
-    private int repitionCount = 5;
+    private int repitionCount = 1;
 
     /** Load TF Lite model from assets. */
     private static MappedByteBuffer loadModelFile(AssetManager assetManager, String model_name) throws IOException {
@@ -98,7 +98,7 @@ public class MainActivity extends AppCompatActivity {
 
                 // pre-process models
                 for(int i = 1; i <= 25; i++){
-                    MODEL_NAME = "hapt_walk_mlp_oneout_nomean_"+ i + "__l64_s4200-mobile-nightly.tflite";
+                    MODEL_NAME = "hapt_walk_mlptwo_oneout_nomean_"+ i + "__l64_s450-model.tflite";
 
                     try {
                         loadedFile = loadModelFile(manager, MODEL_NAME);
@@ -130,22 +130,44 @@ public class MainActivity extends AppCompatActivity {
 
                         // USER DATA LOOP
                         for(int userData = 1; userData <= 30; userData++){
-     //                     Log.d("David", "MODEL: " + model + " TEST CSV: " + userData);
+                          Log.d("David", "MODEL: " + model + " TEST CSV: " + userData);
 
                             double time1 = System.currentTimeMillis();
-                            tflite.run(inputArrays[userData-1], outputArrays[c-1]);
+                            tflite.run(inputArrays[userData-1], outputArrays[userData-1]);
 //                          tfliteGPU.run(inputArrays[userData-1], outputArrays[userData-1]);
 
                             double time2 = System.currentTimeMillis() - time1;
                             timeslist[k][model-1][userData-1] = time2;
 //                          Log.d("David", "Time Millis: " + time2);
 
+                            // This calculates the false positive and negative rate and puts it in the results array
+                            float falseNegPos = 0;
+                            for(int i = 0; i < inputArrays[userData-1].length; i++){
+
+                                // false negatives
+                                if(userData == model){
+                                    if(outputArrays[userData-1][i][0] <= 0.5)
+                                        falseNegPos++;
+                                }
+
+                                // false positives
+                                else{
+                                    if(outputArrays[userData-1][i][0] > 0.5)
+                                        falseNegPos++;
+                                }
+                            }
+
+                            falseNegPos = falseNegPos/inputArrays[userData-1].length;
+
+                            results[model-1][userData-1] = falseNegPos;
+
+
                             // This calculates the average probability from all windows and puts it in the results array
 //                          float averageProb = 0;
 //                          for(int i = 0; i < inputArrays[userData-1].length; i++)
 //                          averageProb += outputArrays[userData-1][i][0];
 //                          averageProb = averageProb/inputArrays[userData-1].length;
-
+//
 //                          results[model-1][userData-1] = averageProb;
                         }
 
@@ -189,7 +211,7 @@ public class MainActivity extends AppCompatActivity {
                 for(int a = 0; a < 25; a++){
                     for(int b = 0; b < 30; b++) {
 
-                        builder.append((finaltimeslist[a][b]));
+                        builder.append((results[a][b]));
 
 
                         if(b == 29){
@@ -208,9 +230,8 @@ public class MainActivity extends AppCompatActivity {
                 }
 
                 String CSVout = builder.toString();
-
                 File path = getApplicationContext().getFilesDir();
-                File file = new File(path, "timingsAvgMLP200_" + repitionCount + "trials.csv");
+                File file = new File(path, "mlptwo50_falseNegPos.csv");
 
                 Log.d("David", file.toString());
 
